@@ -30,14 +30,14 @@ void sendmsg (char *user, char *target, char *msg) {
 	// TODO:
 	// Send a request to the server to send the message (msg) to the target user (target)
 	// by creating the message structure and writing it to server's FIFO
-
-
-
-
-
-
-
-
+//	printf("INSIDE FUNCTION: The command is %s, The Target is %s, and the Message is {%s} \n", user, target, msg );
+	int server = open("serverFIFO", O_WRONLY);
+	struct message response;
+	strcpy(response.source,user);
+	strcpy(response.target, target);
+	strcpy(response.msg, msg);
+	write(server,&response,sizeof(struct message));
+	close(server);
 }
 
 void* messageListener(void *arg) {
@@ -48,12 +48,18 @@ void* messageListener(void *arg) {
 	// following format
 	// Incoming message from [source]: [message]
 	// put an end of line at the end of the message
-
-
-
-
-
-
+//	printf("nothing");
+	int server = open(uName, O_RDONLY);
+	struct message req;
+	while(1) {
+		if (read(server,&req,sizeof(struct message))!=sizeof(struct message)) {
+		continue;
+		} else {
+		printf("Incoming message from %s: %s\n", req.source, req.msg);
+		}
+	}
+	fflush(stdout);
+	close(server);
 	pthread_exit((void*)0);
 }
 
@@ -67,6 +73,8 @@ int isAllowed(const char*cmd) {
 	return 0;
 }
 
+//int pthread_create(pthread_t *threadid, const pthread_attr_t *attr, void *(*start)(void *), void *arg);
+
 int main(int argc, char **argv) {
     pid_t pid;
     char **cargv; 
@@ -74,7 +82,9 @@ int main(int argc, char **argv) {
     char line[256];
     int status;
     posix_spawnattr_t attr;
-
+    pthread_t tid;
+    int *arr = (int *)malloc(sizeof(int)*500);
+    
     if (argc!=2) {
 	printf("Usage: ./rsh <username>\n");
 	exit(1);
@@ -85,10 +95,10 @@ int main(int argc, char **argv) {
 
     // TODO:
     // create the message listener thread
-
-
-
-
+    if(pthread_create(&tid, NULL, messageListener, (void *) arr) != 0) {
+	printf("Error creating thread");
+	return EXIT_FAILURE;
+    }
 
     while (1) {
 
@@ -113,26 +123,28 @@ int main(int argc, char **argv) {
 	if (strcmp(cmd,"sendmsg")==0) {
 		// TODO: Create the target user and
 		// the message string and call the sendmsg function
-
+		char line3[256];
+		char targetUser[256];
+		char message[256];
+		strcpy(targetUser, strtok(NULL, " "));
+		if(targetUser == NULL) {
+			printf("sendmsg: you have to specify target user\n");
+			continue;
+		} else if (line3 == NULL) {
+			printf("sendMsg: you have to enter a message\n");
+			continue;
+		} else {
+			strcpy(message, strtok(NULL, "\0"));
+		}
+		sendmsg(uName, targetUser, message);
 		// NOTE: The message itself can contain spaces
 		// If the user types: "sendmsg user1 hello there"
-		// target should be "user1" 
+		// target should be "user1"
 		// and the message should be "hello there"
-
 		// if no argument is specified, you should print the following
 		// printf("sendmsg: you have to specify target user\n");
 		// if no message is specified, you should print the followingA
- 		// printf("sendmsg: you have to enter a message\n");
-
-
-
-
-
-
-
-
-
-
+ 		// printf("sendMsg: you have to enter a message\n");
 		continue;
 	}
 
@@ -193,7 +205,6 @@ int main(int argc, char **argv) {
 
 	// Destroy spawn attributes
 	posix_spawnattr_destroy(&attr);
-
     }
     return 0;
 }
